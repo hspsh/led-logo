@@ -1,0 +1,49 @@
+{
+    "MPN": [
+        false,
+        "LM350"
+    ],
+    "datasheet": [
+        false,
+        ""
+    ],
+    "description": [
+        false,
+        "Adjustable, 3A, positive voltage regulator, 1.2V-33V"
+    ],
+    "entity": "17084abb-c2d5-43ab-b162-54261190761e",
+    "inherit_model": false,
+    "inherit_tags": false,
+    "manufacturer": [
+        false,
+        "Fairchild"
+    ],
+    "model": "00000000-0000-0000-0000-000000000000",
+    "package": "a677d4bd-3996-46e7-8f5e-2525e9b7ed4c",
+    "pad_map": {
+        "0da58765-1b32-47bc-b8ac-d73309826723": {
+            "gate": "8b4c20d8-37fd-40a5-8239-db8803c0baa0",
+            "pin": "20f0495c-5e6e-4975-b440-1399ca09d3c3"
+        },
+        "ad7ec624-b697-4e84-b94d-876410b53ed2": {
+            "gate": "8b4c20d8-37fd-40a5-8239-db8803c0baa0",
+            "pin": "304699c2-7433-4b03-ad2c-c8df631dd06f"
+        },
+        "d20d28f4-fd0c-456a-b5b0-f68f8872276a": {
+            "gate": "8b4c20d8-37fd-40a5-8239-db8803c0baa0",
+            "pin": "559d5e91-2169-486b-9ece-8db9867957dd"
+        }
+    },
+    "parametric": {},
+    "tags": [
+        "ic",
+        "ldo",
+        "regulator"
+    ],
+    "type": "part",
+    "uuid": "35ed1d9a-4696-4674-94c1-b7c603e30b12",
+    "value": [
+        false,
+        ""
+    ]
+}
