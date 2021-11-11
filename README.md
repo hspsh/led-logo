@@ -1,5 +1,7 @@
 # LED Logo for Hackerspace
 
+Check out forum thread (in Polish) https://forum.hsp.sh/t/podswietlany-trojzab/461
+
 ![finished casing](https://forum.hsp.sh/uploads/default/optimized/2X/7/71eec1eccca28536cf282365970d2ff706e8dcf4_2_666x500.jpeg)
 
 ## Electronics
