@@ -9,3 +9,9 @@ Check out forum thread (in Polish) https://forum.hsp.sh/t/podswietlany-trojzab/4
 Very simple electronics from trash lying around
 
 ![schematic](https://forum.hsp.sh/uploads/default/original/2X/d/d27c2bb7c17ec8f84f575305498827814a52f536.png)
+
+## Node-red flow
+
+We control it with MQTT
+
+![flow](./node-red-flow.png)

@@ -1,54 +1,82 @@
 #include <Arduino.h>
+#include <LeifHomieLib.h>
+
+#if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <ArduinoJson.h>
+#else
+#include "WiFi.h"
+#endif
 
+#include <ArduinoOTA.h>
+#include <initializer_list>
+#include <string>
 
-const char *resource = "https://status.hsp.sh/api/now";
-const char* exthost = "https://status.hsp.sh";
-HTTPClient http;
-WiFiClientSecure client;
+#include "pinDefs.h"
+#include "secrets.h"
+#include "config.h"
+#include "commonFwUtils.h"
 
-const uint8_t RED_PIN = D1;
+HomieDevice homie;
+HomieProperty *pPropRed = NULL;
+HomieProperty *pPropGreen = NULL;
+HomieProperty *pPropBlue = NULL;
+
+static bool enable[3] = { true };
+
+HomieProperty *pPropBrightness = NULL;
+HomieProperty *pPropSpeed = NULL;
+
+const uint8_t RED_PIN = D3;
 const uint8_t GREEN_PIN = D2;
-const uint8_t BLUE_PIN = D3;
+const uint8_t BLUE_PIN = D1;
 static int brightness;
 int fadeAmount = 5;
 
 static unsigned char pos = 0;
 
-StaticJsonDocument<1024> json;
-static bool isOpen = true;
-unsigned long lastRequest = 0;
 
-bool getSpaceStatus()
-{
-  String payload = "";
-  http.begin(client, resource);
-  int httpCode = http.GET();
+void init_prop_color(HomieNode* pNode, HomieProperty* pProperty, int i, String id){
+  pProperty = pNode->NewProperty();
+  pProperty->strFriendlyName = "Color " + id;
+  pProperty->strID = id;
+  pProperty->SetRetained(true);
+  pProperty->SetSettable(true);
+  pProperty->datatype = homieBool;
+  pProperty->SetBool(true);
+  pProperty->strFormat = "";
+  //callback is actually not needed cause buzzer is handled in loop
+  pProperty->AddCallback([i](HomieProperty *pSource) {
+  	Serial.printf("%s is now %s\n", pSource->strFriendlyName.c_str(),pSource->GetValue().c_str()); 
+    enable[i] = strcmp(pSource->GetValue().c_str(), "true") == 0;
+  });
+}
 
-  if (httpCode == HTTP_CODE_OK)    
-  {
-    payload = http.getString();
+void init_homie_stuff(HomieDevice* pHomie){
+  pHomie->strFriendlyName = friendlyName;
+  #if defined(APPEND_MAC_TO_HOSTNAME)
+    char out[20];
+    sprintf(out, "%s-%X",hostname, ESP.getChipId()); // WiFi.macAddress().c_str() is random
+    pHomie->strID = out;
+  #else
+    pHomie->strID = hostname;
+  #endif
+  pHomie->strID.toLowerCase();
 
-    http.end(); //Free the resources
-    DeserializationError error = deserializeJson(json, payload);
-    if (error != DeserializationError::Ok)
-    {
-      return false;
-    }
-    bool result = json["state"]["open"];
-    return result;
-  }
-  http.end(); // Close connection
-  return false;
+  pHomie->strMqttServerIP = fallbackMqttIp;
+	pHomie->strMqttUserName = MQTT_USERNAME;
+	pHomie->strMqttPassword = MQTT_PASSWD;
+  pHomie->Init();
+
+  Serial.print("\ninitialized ");
+  Serial.println(pHomie->strID);
+
 }
 
 void setColor(int r, int g, int b)
 {
-  analogWrite(RED_PIN, r);
-  analogWrite(GREEN_PIN, g);
-  analogWrite(BLUE_PIN, b);
+  analogWrite(RED_PIN, enable[0] ? r : 0);
+  analogWrite(GREEN_PIN, enable[1] ? g : 0);
+  analogWrite(BLUE_PIN, enable[2] ? b : 0);
 }
 
 // Input a value 0 to 255 to get a color value.
@@ -71,40 +99,60 @@ void Wheel(unsigned char WheelPos)
   }
 }
 
-void setup()
-{
+void setup() {
+  Serial.begin(115200);
+  pinMode(PIN_LED, OUTPUT);
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(IOT_WIFI_NAME, IOT_WIFI_PASSWD);
 
-  client.setInsecure(); //the magic line, use with caution
-  client.connect(exthost, 433);
-  isOpen = false;
+  while (WiFi.status() != WL_CONNECTED) {
+    static bool flag = false;
+    digitalWrite(PIN_LED,flag);
+    flag = !flag;
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    pos += 10;
-    Wheel(pos);
-    delay(10);
+    Serial.print(".");
+    delay(3000);    
   }
-  isOpen = getSpaceStatus();
+  Serial.print("\nconnected\n");
+
+
+  // begin_hspota();    
+  HomieNode *pNode = homie.NewNode();
+  pNode->strID = "properties";
+  pNode->strFriendlyName = "Properties";
+
+  init_prop_color(pNode, pPropRed, 0, "red");
+  init_prop_color(pNode, pPropGreen, 1, "green");
+  init_prop_color(pNode, pPropBlue, 2, "blue");
+
+  // Serial.print(pPropRed->GetValue());
+
+  // pPropBlue->AddCallback([](HomieProperty *pSource) {
+  // 	Serial.printf("%s is now %s\n",pSource->strFriendlyName.c_str(),pSource->GetValue().c_str()); 
+  //   // enableBlue = pSource->GetValue().c_str() != "false";
+  // });
+
+  // init_buzzer(pNode,pPropBuzzer, "buzzer");  
+
+  init_homie_stuff(&homie);  
 }
 
-void loop()
-{
-  if (WiFi.status() == WL_CONNECTED && millis() - lastRequest >= 1000 * 60)
-  {
-    isOpen = getSpaceStatus();
-    lastRequest = millis();
-  }
-  pos++;
-  if (isOpen)
-  {
-    Wheel(pos);
-  }
-  else
-  {
-    setColor(0, 0, 0);
+void loop() {
+  if(homie.IsConnected()){
+    handle_io_pattern(PIN_LED,PATTERN_HBEAT);
+  } else {
+    handle_io_pattern(PIN_LED,PATTERN_ERR);
   }
 
-  delay(300); // delaying the speed of fading
+  // ArduinoOTA.handle();
+  homie.Loop();
+  pos++;
+  if (pos > 255) { pos = 0; }
+  Wheel(pos);
+
+  delay(100);
 }
